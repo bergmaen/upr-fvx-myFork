@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-public class DetermineEvoLevels extends RomHandlerTest{
+public class DetermineEvoLevels extends RomHandlerTest {
 
     @ParameterizedTest
     @MethodSource("getRomNames")
@@ -32,46 +32,36 @@ public class DetermineEvoLevels extends RomHandlerTest{
         int latestLevelUpEvo = getLevelUpInformation(levelUpEvos, levelUpBSTaverage, levelUpBSTmin, levelUpBSTmax,
                 fromBST_toBST_evoLevel);
 
-        // TODO ChatGPT approach three sounds good
         System.out.println(romName + " - latest level up evolution: " + latestLevelUpEvo);
-        System.out.println("minimum BST at level: " + Arrays.toString(levelUpBSTmin));
-        System.out.println("average BST at level: " + Arrays.toString(levelUpBSTaverage));
-        System.out.println("maximum BST at level: " + Arrays.toString(levelUpBSTmax));
-        for (int k = 0; k<fromBST_toBST_evoLevel.size(); k++) {
+//        System.out.println("minimum BST at level: " + Arrays.toString(levelUpBSTmin));
+//        System.out.println("average BST at level: " + Arrays.toString(levelUpBSTaverage));
+//        System.out.println("maximum BST at level: " + Arrays.toString(levelUpBSTmax));
+        for (int k = 0; k < fromBST_toBST_evoLevel.size(); k++) {
             int[] row = fromBST_toBST_evoLevel.get(k);
             System.out.print(Arrays.toString(row) + " ");
-            if ((k+1)%9==0) System.out.println();
+            if ((k + 1) % 9 == 0) System.out.println();
         }
         System.out.println();
         // TODO place pk in fromBST_toBST_Level list at best fitting fromBST entry index: then, go in both directions,
-        // TOOD and determine evo level (penalizing distance in list)
+        // TODO and determine evo level (penalizing distance in list)
+        // DEMANDS: 1. If there is an exact pre-post BST macht, the level is the same
+        //          2. If there are multiple such matches, average the levels and round
+        //          3. (?)
         for (Species pk : nonLevelUpEvos) {
             int evoLevelFirstStage = 0;
-            if (pk.getEvolutionsFrom().get(0).getType().usesLevel()) { // evolve first if level up evo
+
+            // Handle first level-up evolution, if it exists
+            Evolution firstEvo = pk.getEvolutionsFrom().get(0);
+            if (firstEvo.getType().usesLevel()) {
+                evoLevelFirstStage = firstEvo.getExtraInfo();
                 String pkOldName = pk.getName();
-                evoLevelFirstStage = pk.getEvolutionsFrom().get(0).getExtraInfo();
-                pk = pk.getEvolutionsFrom().get(0).getTo();
-                System.out.println(pkOldName + " --> " + pk.getName() + " (level up evo at level " + evoLevelFirstStage + ")");
+                pk = firstEvo.getTo();
+                System.out.println(pkOldName + " --> " + pk.getName()
+                        + " (level up evo at level " + evoLevelFirstStage + ")");
             }
-            int bstPk = getBST(pk);
-            for (Evolution evo : pk.getEvolutionsFrom()) {
-                Species evoOfPk = evo.getTo();
-                int bstEvoOfPk = getBST(evoOfPk);
-                boolean evoBeforeLatestLvl = false;
-                for (int m = evoLevelFirstStage; m < latestLevelUpEvo; m++) {
-                    // TODO the following is the thing that has to be figured out
-                    if (bstEvoOfPk <= levelUpBSTmax[m] && bstPk <= levelUpBSTaverage[m] ) {//&& bstPk <= levelUpBSTmin[m]) {
-                        System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
-                                + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") at level " + (m + 1));
-                        evoBeforeLatestLvl = true;
-                        break;
-                    }
-                }
-                if (!evoBeforeLatestLvl) {
-                    System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
-                            + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") at latest evo level " + latestLevelUpEvo);
-                }
-            }
+
+             //getEvoLevelsUsingMinMaxAvg(pk, evoLevelFirstStage, latestLevelUpEvo, levelUpBSTmax, levelUpBSTaverage);
+            getEvoLevelsUsingTriplet(pk, evoLevelFirstStage, latestLevelUpEvo, fromBST_toBST_evoLevel);
         }
     }
 
@@ -125,7 +115,7 @@ public class DetermineEvoLevels extends RomHandlerTest{
                         int pkBST = getBST(pk);
                         Species evoOfPk = pk.getEvolutionsFrom().get(0).getTo();
                         int evoOfPkBST = getBST(evoOfPk);
-                        fromBST_toBST_evoLevel.add(new int[] {pkBST, evoOfPkBST, evoLevel});
+                        fromBST_toBST_evoLevel.add(new int[]{pkBST, evoOfPkBST, evoLevel});
                         levelUpEvos.set(k, evoOfPk);
                         evolutionHappened = true;
                         atLeastOneEvoHappend = true;
@@ -160,5 +150,168 @@ public class DetermineEvoLevels extends RomHandlerTest{
     private int getBST(Species pk) {
         return pk.getHp() + pk.getAttack() + pk.getDefense() + pk.getSpatk() + pk.getSpdef() + pk.getSpeed() + pk.getSpecial();
     }
-}
 
+    private void getEvoLevelsUsingMinMaxAvg(Species pk, int evoLevelFirstStage, int latestLevelUpEvo,
+                                            int[] levelUpBSTmax, int[] levelUpBSTaverage) {
+        int bstPk = getBST(pk);
+
+        for (Evolution evo : pk.getEvolutionsFrom()) {
+            Species evoOfPk = evo.getTo();
+            int bstEvoOfPk = getBST(evoOfPk);
+
+            int chosenLevel = findEvolutionLevelUsingMinMaxAvg(bstPk, bstEvoOfPk, evoLevelFirstStage, latestLevelUpEvo,
+                    levelUpBSTmax, levelUpBSTaverage);
+
+            System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
+                    + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") at level " + chosenLevel);
+
+            // Handle possible second-stage evolution
+            for (Evolution evoOfEvo : evoOfPk.getEvolutionsFrom()) {
+                Species evoOfEvoOfPk = evoOfEvo.getTo();
+                int bstEvoOfEvoOfPk = getBST(evoOfEvoOfPk);
+
+                int chosenLevel2 = findEvolutionLevelUsingMinMaxAvg(bstEvoOfPk, bstEvoOfEvoOfPk, chosenLevel, latestLevelUpEvo,
+                        levelUpBSTmax, levelUpBSTaverage);
+
+                System.out.println(evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") --> "
+                        + evoOfEvoOfPk.getName() + " (BST: " + bstEvoOfEvoOfPk + ") at level " + chosenLevel2);
+            }
+        }
+    }
+
+    private int findEvolutionLevelUsingMinMaxAvg(int bstFrom, int bstTo,
+                                   int minLevel, int latestLevelUpEvo,
+                                   int[] levelUpBSTmax, int[] levelUpBSTaverage) {
+        for (int lvl = minLevel; lvl < latestLevelUpEvo; lvl++) {
+            if (bstTo <= levelUpBSTmax[lvl] && bstFrom <= levelUpBSTaverage[lvl]) {
+                return lvl + 1; // levels are 1-based
+            }
+        }
+        return latestLevelUpEvo; // Fallback to latest evo level
+    }
+
+    private void getEvoLevelsUsingTriplet(Species pk, int evoLevelFirstStage, int latestLevelUpEvo, List<int[]> fromBST_toBST_evoLevel) {
+        int bstPk = getBST(pk);
+
+        for (Evolution evo : pk.getEvolutionsFrom()) {
+            Species evoOfPk = evo.getTo();
+            int bstEvoOfPk = getBST(evoOfPk);
+
+            int chosenLevel = findEvolutionLevel(bstPk, bstEvoOfPk, evoLevelFirstStage, latestLevelUpEvo,
+                    fromBST_toBST_evoLevel);
+
+            System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
+                    + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") at level " + chosenLevel);
+
+            // Handle possible second-stage evolution
+            for (Evolution evoOfEvo : evoOfPk.getEvolutionsFrom()) {
+                Species evoOfEvoOfPk = evoOfEvo.getTo();
+                int bstEvoOfEvoOfPk = getBST(evoOfEvoOfPk);
+
+                int chosenLevel2 = findEvolutionLevel(bstEvoOfPk, bstEvoOfEvoOfPk, chosenLevel, latestLevelUpEvo,
+                        fromBST_toBST_evoLevel);
+
+                System.out.println(evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") --> "
+                        + evoOfEvoOfPk.getName() + " (BST: " + bstEvoOfEvoOfPk + ") at level " + chosenLevel2);
+            }
+        }
+    }
+
+    private int findEvolutionLevel(
+            int bstFrom,
+            int bstTo,
+            int minLevel,
+            int latestLevelUpEvo,
+            List<int[]> fromBST_toBST_evoLevel
+    ) {
+        int k = 10;
+        // PriorityQueue keeps k best matches (smallest diffs)
+        PriorityQueue<int[]> pq = new PriorityQueue<>(
+                (a, b) -> Integer.compare(
+                        Math.abs(b[0] - bstFrom),
+                        Math.abs(a[0] - bstFrom)
+                )
+        );
+
+        for (int[] row : fromBST_toBST_evoLevel) {
+            int diff = Math.abs(row[0] - bstFrom);
+            // Add row into PQ
+            pq.offer(row);
+            // Keep only k closest
+            if (pq.size() > k) {
+                pq.poll();
+            }
+        }
+
+        // Now pq contains the k closest rows
+        int sumLevels = 0;
+        int count = 0;
+        for (int[] row : pq) {
+            sumLevels += row[2]; // evo level
+            count++;
+        }
+
+        // Use average of k closest as sensible evo level
+        int estimatedLevel = sumLevels / count;
+
+        // Clamp to [minLevel, latestLevelUpEvo]
+        if (estimatedLevel < minLevel) {
+            estimatedLevel = minLevel;
+        }
+        if (estimatedLevel > latestLevelUpEvo) {
+            estimatedLevel = latestLevelUpEvo;
+        }
+
+        return estimatedLevel;
+    }
+
+
+//    private int findEvolutionLevel(int bstFrom, int bstTo, int minLevel, int latestLevelUpEvo, List<int[]> fromBST_toBST_evoLevel) {
+//        // Step 1: find the entry with closest bstFrom to the given bstFrom
+//        int[] closest = null;
+//        int closestDiff = Integer.MAX_VALUE;
+//
+//        for (int[] row : fromBST_toBST_evoLevel) {
+//            int diff = Math.abs(row[0] - bstFrom);
+//            if (diff < closestDiff) {
+//                closestDiff = diff;
+//                closest = row;
+//
+//                if (closestDiff == 0) {
+//                    // Exact match, no need to continue
+//                    break;
+//                }
+//            } else if (diff > closestDiff) {
+//                // Since the list is sorted, diffs will only increase
+//                break;
+//            }
+//        }
+//
+//        if (closest == null) {
+//            // Fallback if the list is empty
+//            return latestLevelUpEvo;
+//        }
+//
+//        // Step 2: take evoLevel from closest as baseline
+//        int candidateLevel = closest[2];
+//
+//        // Step 3: adjust slightly depending on bstTo compared to closest
+//        if (bstTo > closest[1]) {
+//            // If our target evo is stronger, push level up a bit
+//            candidateLevel += 1;
+//        } else if (bstTo < closest[1]) {
+//            // If weaker, evolve slightly earlier
+//            candidateLevel -= 1;
+//        }
+//
+//        // Step 4: respect constraints
+//        if (candidateLevel < minLevel) {
+//            candidateLevel = minLevel;
+//        }
+//        if (candidateLevel > latestLevelUpEvo) {
+//            candidateLevel = latestLevelUpEvo;
+//        }
+//
+//        return candidateLevel;
+//    }
+}
