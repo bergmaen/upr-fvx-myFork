@@ -119,7 +119,9 @@ public class DetermineEvoLevels extends RomHandlerTest {
                                    List<int[]> first2second, List<int[]> second2final, List<int[]> first2final,
                                    int depth) {
         int latestLevelUpEvo = 0; // TODO there is still a bug in here
-
+// 1.6 vs 2.3 : 1.4
+        // 1.7 vs 4.2 : 2.5
+        // 2.1 vs 5.5 : 2.6
         for (Species pk : levelUpEvos) {
             for (Evolution evo : pk.getEvolutionsFrom()) {
                 Species evoOfPk = evo.getTo();
@@ -245,11 +247,11 @@ public class DetermineEvoLevels extends RomHandlerTest {
             int bstEvoOfPk = getBST(evoOfPk);
             int chosenLevel = 0;
             if (depth == 0 && evoOfPk.getEvolutionsFrom().isEmpty()) {
-                chosenLevel = findEvolutionLevel(first2final, bstPk, bstEvoOfPk);
+                chosenLevel = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk); // first2final
             } else if (depth == 1 && evoOfPk.getEvolutionsFrom().isEmpty()) {
-                chosenLevel = findEvolutionLevel(second2final, bstPk, bstEvoOfPk);
+                chosenLevel = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk); //second2final
             } else {
-                chosenLevel = findEvolutionLevel(second2final, bstPk, bstEvoOfPk);
+                chosenLevel = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk); //first2second
             }
 
             System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
@@ -269,30 +271,71 @@ public class DetermineEvoLevels extends RomHandlerTest {
     }
 
 
-    public static int findEvolutionLevel(List<int[]> triplets, int targetPre, int targetPost) {
+    public static int findEvolutionLevel(List<int[]> samples, int targetPreBST, int targetPostBST) {
+
+        // ==== CONFIGURATION PARAMETERS ====
+        double p = 2.0;                // distance weighting exponent: 1/d^p
+        double preFactor = 3;          // scaling factor for preBST
+        double postFactor = 3;         // scaling factor for postBST
+        double largeWeightForZero = 1e6; // weight to use if distance is zero
+        // ==================================
+
         double weightedSum = 0.0;
-        double weightTotal = 0.0;
+        double weightSum = 0.0;
 
-        // TODO pre evo weaker than comparison and post evo stronger than comparison should 'increase' the distance (decrease the weight)
+        for (int[] sample : samples) {
+            int samplePre = sample[0];
+            int samplePost = sample[1];
+            int sampleLevel = sample[2];
 
-        for (int[] row : triplets) {
-            int preBST = row[0];
-            int postBST = row[1];
-            int level = row[2];
+            // Compute Euclidean distance
+            double dx = targetPreBST - samplePre;
+            double dy = targetPostBST - samplePost;
+            double dist = Math.sqrt(dx * dx + dy * dy);
 
-            // Euclidean distance
-            double dx = preBST - targetPre;
-            double dy = postBST - targetPost;
-            double distance = Math.sqrt(dx * dx + dy * dy);
+            // Weight = 1 / d^p, use largeWeightForZero if distance is zero
+            double weight = dist == 0 ? largeWeightForZero : 1.0 / Math.pow(dist, p);
 
-            // Avoid division by zero
-            double weight = (distance == 0) ? 1.5 : 1.0 / distance;
+            // Pre/post scaling
+//            double scaledPre = 1 + preFactor * ((double) targetPreBST / samplePre - 1);
+//            double scaledPost = 1 + postFactor * ((double) targetPostBST / samplePost - 1);
+            double scaledPre = Math.pow((double) targetPreBST / samplePre, preFactor);
+            double scaledPost = Math.pow((double) targetPostBST / samplePost, postFactor);
 
-            weightedSum += weight * level;
-            weightTotal += weight;
+            double adjustedLevel = sampleLevel * (scaledPre + scaledPost) / 2.0;
+
+            weightedSum += adjustedLevel * weight;
+            weightSum += weight;
         }
-        return (int) Math.round(weightedSum / weightTotal);
+
+        // Return weighted average
+        return (int) Math.round(weightedSum / weightSum);
     }
+
+//    public static int findEvolutionLevel(List<int[]> triplets, int targetPre, int targetPost) {
+//        double weightedSum = 0.0;
+//        double weightTotal = 0.0;
+//
+//        // TODO pre evo weaker than comparison and post evo stronger than comparison should 'increase' the distance (decrease the weight)
+//
+//        for (int[] row : triplets) {
+//            int preBST = row[0];
+//            int postBST = row[1];
+//            int level = row[2];
+//
+//            // Euclidean distance
+//            double dx = preBST - targetPre;
+//            double dy = postBST - targetPost;
+//            double distance = Math.sqrt(dx * dx + dy * dy);
+//
+//            // Avoid division by zero
+//            double weight = (distance == 0) ? 1.5 : 1.0 / distance;
+//
+//            weightedSum += weight * level;
+//            weightTotal += weight;
+//        }
+//        return (int) Math.round(weightedSum / weightTotal);
+//    }
 
 
 //    private int findEvolutionLevel(
