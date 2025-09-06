@@ -62,8 +62,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
                 evoLevelFirstStage = firstEvo.getExtraInfo();
                 String pkOldName = pk.getName();
                 pk = firstEvo.getTo();
-                System.out.println(pkOldName + " --> " + pk.getName()
-                        + " (level up evo at level " + evoLevelFirstStage + ")");
+                System.out.print(pkOldName + " --(Lv" + evoLevelFirstStage +")--> ");
             }
 
              //getEvoLevelsUsingMinMaxAvg(pk, evoLevelFirstStage, latestLevelUpEvo, levelUpBSTmax, levelUpBSTaverage);
@@ -246,16 +245,20 @@ public class DetermineEvoLevels extends RomHandlerTest {
             Species evoOfPk = evo.getTo();
             int bstEvoOfPk = getBST(evoOfPk);
             int chosenLevel = 0;
+            int chosenLevelTotal = 0;
             if (depth == 0 && evoOfPk.getEvolutionsFrom().isEmpty()) {
-                chosenLevel = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk); // first2final
+                chosenLevel = findEvolutionLevel(first2final, bstPk, bstEvoOfPk);
+                chosenLevelTotal = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk);
             } else if (depth == 1 && evoOfPk.getEvolutionsFrom().isEmpty()) {
-                chosenLevel = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk); //second2final
+                chosenLevel = findEvolutionLevel(second2final, bstPk, bstEvoOfPk);
+                chosenLevelTotal = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk);
             } else {
-                chosenLevel = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk); //first2second
+                chosenLevel = findEvolutionLevel(first2second, bstPk, bstEvoOfPk);
+                chosenLevelTotal = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk);
             }
 
             System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
-                    + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") at level " + chosenLevel);
+                    + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") at level " + chosenLevel + " | " + chosenLevelTotal);
 
             // Handle possible second-stage evolution
             for (Evolution evoOfEvo : evoOfPk.getEvolutionsFrom()) {
@@ -263,9 +266,11 @@ public class DetermineEvoLevels extends RomHandlerTest {
                 int bstEvoOfEvoOfPk = getBST(evoOfEvoOfPk);
 
                 int chosenLevel2 = findEvolutionLevel(second2final, bstEvoOfPk, bstEvoOfEvoOfPk);
+                int chosenLevelTotal2 = findEvolutionLevel(fromBST_toBST_evoLevel, bstPk, bstEvoOfPk);
+
 
                 System.out.println(evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") --> "
-                        + evoOfEvoOfPk.getName() + " (BST: " + bstEvoOfEvoOfPk + ") at level " + chosenLevel2);
+                        + evoOfEvoOfPk.getName() + " (BST: " + bstEvoOfEvoOfPk + ") at level " + chosenLevel2 + " | " + chosenLevelTotal2);
             }
         }
     }
@@ -274,10 +279,10 @@ public class DetermineEvoLevels extends RomHandlerTest {
     public static int findEvolutionLevel(List<int[]> samples, int targetPreBST, int targetPostBST) {
 
         // ==== CONFIGURATION PARAMETERS ====
-        double p = 2.0;                // distance weighting exponent: 1/d^p
-        double preFactor = 3;          // scaling factor for preBST
+        double p = 2;                // distance weighting exponent: 1/d^p
+        double preFactor = 2;          // scaling factor for preBST
         double postFactor = 3;         // scaling factor for postBST
-        double largeWeightForZero = 1e6; // weight to use if distance is zero
+        double largeWeightForZero = 1; // weight to use if distance is zero
         // ==================================
 
         double weightedSum = 0.0;
@@ -301,8 +306,10 @@ public class DetermineEvoLevels extends RomHandlerTest {
 //            double scaledPost = 1 + postFactor * ((double) targetPostBST / samplePost - 1);
             double scaledPre = Math.pow((double) targetPreBST / samplePre, preFactor);
             double scaledPost = Math.pow((double) targetPostBST / samplePost, postFactor);
+//            double scaledTotal = Math.pow((double) (targetPreBST + targetPostBST) / (samplePre + samplePost), postFactor);
 
             double adjustedLevel = sampleLevel * (scaledPre + scaledPost) / 2.0;
+//            double adjustedLevel = sampleLevel * scaledTotal;
 
             weightedSum += adjustedLevel * weight;
             weightSum += weight;
