@@ -15,8 +15,8 @@ public class DetermineEvoLevels extends RomHandlerTest {
         long start = System.nanoTime();
         SpeciesSet allSpecies = romHandler.getSpeciesSet();
 
-        List<Species> levelUpEvos = new ArrayList<>();
-        List<Species> nonLevelUpEvos = new ArrayList<>();
+        List<Evolution> levelUpEvos = new ArrayList<>();
+        List<Evolution> nonLevelUpEvos = new ArrayList<>();
         findLevelUpAndNonLevelUpEvos(allSpecies, levelUpEvos, nonLevelUpEvos);
 
         List<int[]> preEvo2postEvo = new ArrayList<>();
@@ -35,55 +35,48 @@ public class DetermineEvoLevels extends RomHandlerTest {
         System.out.println();
 
         getNonLevelUpEvoLevels(nonLevelUpEvos, latestLevelUpEvo, preEvo2postEvo);
+
         long end = System.nanoTime();
         System.out.println("Elapsed time: " + (end - start) / 1_000_000 + " ms");
     }
 
-    private void findLevelUpAndNonLevelUpEvos(SpeciesSet allSpecies, List<Species> levelUpEvos, List<Species> nonLevelUpEvos) {
-        // TODO if split evos where one line gets to the end with only level-up, count that path as level up
-        // make the lists evolution centric (List<Evolution>)
+    private void findLevelUpAndNonLevelUpEvos(SpeciesSet allSpecies, List<Evolution> levelUpEvos, List<Evolution> nonLevelUpEvos) {
         for (Species pk : allSpecies) {
             if (!pk.getEvolutionsTo().isEmpty() || // Skip if not base stage
                     pk.getEvolutionsFrom().isEmpty()) { // Skip if it does not have an evolution
                 continue;
             }
-            List<Evolution> evolutions = pk.getEvolutionsFrom();
-            boolean isNotLevelEvo = false;
-            for (Evolution evo : evolutions) {
-                if (!evo.getType().usesLevel()) {
-                    isNotLevelEvo = true;
-                } else {
-                    for (Evolution secondEvo : evo.getTo().getEvolutionsFrom()) {
+            for (Evolution firstEvo : pk.getEvolutionsFrom()) {
+                if (!firstEvo.getType().usesLevel()) {
+                    nonLevelUpEvos.add(firstEvo);
+                    for (Evolution secondEvo : firstEvo.getTo().getEvolutionsFrom()) {
                         if (!secondEvo.getType().usesLevel()) {
-                            isNotLevelEvo = true;
+                            nonLevelUpEvos.add(secondEvo);
+                        }
+                    }
+                } else if (firstEvo.getTo().getEvolutionsFrom().isEmpty()) { // Level-up evo without 3rd stage
+                    levelUpEvos.add(firstEvo);
+                } else { // Level-up evo with 3rd stage
+                    for (Evolution secondEvo : firstEvo.getTo().getEvolutionsFrom()) {
+                        if (!secondEvo.getType().usesLevel()) {
+                            nonLevelUpEvos.add(secondEvo);
                         } else {
-                            isNotLevelEvo = false;
+                            levelUpEvos.add(firstEvo);
+                            levelUpEvos.add(secondEvo);
                         }
                     }
                 }
             }
-            if (isNotLevelEvo) {
-                nonLevelUpEvos.add(pk);
-            } else {
-                levelUpEvos.add(pk);
-            }
         }
     }
 
-    private int getLevelUpTriplets(List<Species> levelUpEvos, List<int[]> preEvo2postEvo) {
+    private int getLevelUpTriplets(List<Evolution> levelUpEvos, List<int[]> preEvo2postEvo) {
         int latestLevelUpEvo = 0;
-        for (Species pk : levelUpEvos) {
-            for (Evolution evo : pk.getEvolutionsFrom()) {
-                Species evoOfPk = evo.getTo();
-                int evoLevel = evo.getExtraInfo();
-                int[] triplet = {getBST(pk), getBST(evoOfPk), evoLevel};
-                preEvo2postEvo.add(triplet);
-                // Handle potential second evolution
-                if (!evoOfPk.getEvolutionsFrom().isEmpty()) {
-                    latestLevelUpEvo = Math.max(latestLevelUpEvo, getLevelUpTriplets(Collections.singletonList(evoOfPk), preEvo2postEvo));
-                }
-                latestLevelUpEvo = Math.max(evoLevel, latestLevelUpEvo);
-            }
+        for (Evolution evo : levelUpEvos) {
+            int evoLevel = evo.getExtraInfo();
+            int[] triplet = {getBST(evo.getFrom()), getBST(evo.getTo()), evoLevel};
+            preEvo2postEvo.add(triplet);
+            latestLevelUpEvo = Math.max(evoLevel, latestLevelUpEvo);
         }
         return latestLevelUpEvo;
     }
@@ -101,48 +94,32 @@ public class DetermineEvoLevels extends RomHandlerTest {
         System.out.println();
     }
 
-    private static void getNonLevelUpEvoLevels(List<Species> nonLevelUpEvos, int latestLevelUpEvo, List<int[]> preEvo2postEvo) {
-        for (Species pk : nonLevelUpEvos) {
-            for (Evolution firstEvo : pk.getEvolutionsFrom()) {
-                int evoLevelFirstStage = 0;
-                // Handle if first evo is level-up evo
-                if (firstEvo.getType().usesLevel()) {
-                    evoLevelFirstStage = firstEvo.getExtraInfo();
-                    String pkOldName = pk.getName();
-                    pk = firstEvo.getTo();
-                    System.out.print(pkOldName + " --(Lv" + evoLevelFirstStage + ")--> ");
-                    getEvoLevelsUsingTriplet(pk, pk.getEvolutionsFrom(), evoLevelFirstStage, latestLevelUpEvo, preEvo2postEvo);
-                } else {
-                    getEvoLevelsUsingTriplet(pk, Collections.singletonList(firstEvo), evoLevelFirstStage, latestLevelUpEvo, preEvo2postEvo);
-                }
+    private static void getNonLevelUpEvoLevels(List<Evolution> nonLevelUpEvos, int latestLevelUpEvo, List<int[]> preEvo2postEvo) {
+        for (Evolution evo : nonLevelUpEvos) {
+            int evoLevelFirstStage = 0;
+            // Handle if pre evo is level up evolution of another Pokemon exists and is level-up evo
+            List<Evolution> previousEvo = evo.getFrom().getEvolutionsTo();
+            if (!previousEvo.isEmpty() && previousEvo.get(0).getType().usesLevel()) {
+                evoLevelFirstStage = previousEvo.get(0).getExtraInfo();
+                System.out.print(previousEvo.get(0).getFrom().getName() + " --(Lv" + evoLevelFirstStage + ")--> ");
             }
+            getEvoLevelsUsingTriplet(evo, evoLevelFirstStage, preEvo2postEvo);
         }
     }
 
-    private static void getEvoLevelsUsingTriplet(Species pk, List<Evolution> evosToCheck, int evoLevelFirstStage,
-                                                 int latestLevelUpEvo, List<int[]> preEvo2postEvo) {
+    private static void getEvoLevelsUsingTriplet(Evolution evo, int evoLevelFirstStage, List<int[]> preEvo2postEvo) {
+        Species pk = evo.getFrom();
         int bstPk = getBST(pk);
+        Species evoOfPk = evo.getTo();
+        int bstEvoOfPk = getBST(evoOfPk);
 
-        for (Evolution evo : evosToCheck) {
-            Species evoOfPk = evo.getTo();
-            int bstEvoOfPk = getBST(evoOfPk);
-            int chosenLevel = findEvolutionLevel(preEvo2postEvo, bstPk, bstEvoOfPk);
+        int chosenLevel = findEvolutionLevel(preEvo2postEvo, bstPk, bstEvoOfPk);
 
-            System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
-                    + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ")   AT LEVEL   " + chosenLevel);
+        System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
+                + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ")   AT LEVEL   " + chosenLevel);
 
-            // Handle possible second-stage evolution
-            // TODO make such that is at least 25% higher than the first evo, e.g., Rhydon appears at 42, so Rhyperior shall only appear at level 52.5~=53
-            for (Evolution evoOfEvo : evoOfPk.getEvolutionsFrom()) {
-                Species evoOfEvoOfPk = evoOfEvo.getTo();
-                int bstEvoOfEvoOfPk = getBST(evoOfEvoOfPk);
-
-                chosenLevel = findEvolutionLevel(preEvo2postEvo, bstEvoOfPk, bstEvoOfEvoOfPk);
-
-                System.out.println(evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") --> "
-                        + evoOfEvoOfPk.getName() + " (BST: " + bstEvoOfEvoOfPk + ")   AT LEVEL   " + chosenLevel);
-            }
-        }
+        // TODO make such that is at least 25% higher than the first evo, e.g., Rhydon appears at 42, so Rhyperior shall only appear at level 52.5~=53
+        // TODO if there follows another evo which is by level up again, also make sure to have the level low enough of first evo
     }
 
     public static int findEvolutionLevel(List<int[]> samples, int targetPreBST, int targetPostBST) {
