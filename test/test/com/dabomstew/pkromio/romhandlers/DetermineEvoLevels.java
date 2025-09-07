@@ -30,6 +30,9 @@ public class DetermineEvoLevels extends RomHandlerTest {
         first2final.sort(Comparator.comparingInt(r->r[0]));
         preEvo2postEvo.sort(Comparator.comparingInt(r->r[0]));
         System.out.println();
+        System.out.print("=====================================================================================");
+        System.out.println("=====================================================================================");
+        System.out.println();
         System.out.println(romName + " - latest level up evolution: " + latestLevelUpEvo);
         System.out.println();
         System.out.println("First to second:");
@@ -108,7 +111,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
         for (int k = 0; k < rowList.size(); k++) {
             int[] row = rowList.get(k);
             System.out.print(Arrays.toString(row) + " ");
-            if ((k + 1) % 9 == 0) System.out.println();
+            if ((k + 1) % 10 == 0) System.out.println();
         }
         System.out.println();
     }
@@ -161,6 +164,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
                     + ")   AT LEVEL   (" + chosenLevel + " | " + chosenLevelTotal + ")");
 
             // Handle possible second-stage evolution
+            // TODO make such that is at least 25% higher than the first evo, e.g., Rhydon appears at 42, so Rhyperior shall only appear at level 52.5~=53
             for (Evolution evoOfEvo : evoOfPk.getEvolutionsFrom()) {
                 Species evoOfEvoOfPk = evoOfEvo.getTo();
                 int bstEvoOfEvoOfPk = getBST(evoOfEvoOfPk);
