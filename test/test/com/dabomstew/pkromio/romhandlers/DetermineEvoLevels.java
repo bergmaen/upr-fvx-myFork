@@ -12,6 +12,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
     @MethodSource("getRomNames")
     public void findAverageEvoStrength(String romName) {
         loadROM(romName);
+        long start = System.nanoTime();
         SpeciesSet allSpecies = romHandler.getSpeciesSet();
 
         List<Species> levelUpEvos = new ArrayList<>();
@@ -19,15 +20,9 @@ public class DetermineEvoLevels extends RomHandlerTest {
         findLevelUpAndNonLevelUpEvos(allSpecies, levelUpEvos, nonLevelUpEvos);
 
         List<int[]> preEvo2postEvo = new ArrayList<>();
-        List<int[]> first2second = new ArrayList<>();
-        List<int[]> second2final = new ArrayList<>();
-        List<int[]> first2final = new ArrayList<>();
-        int latestLevelUpEvo = getLevelUpTriplets(levelUpEvos, preEvo2postEvo, first2second, second2final, first2final, 0);
+        int latestLevelUpEvo = getLevelUpTriplets(levelUpEvos, preEvo2postEvo);
 
         // Display the level-up triplets (sorted for better readability)
-        first2second.sort(Comparator.comparingInt(r->r[0]));
-        second2final.sort(Comparator.comparingInt(r->r[0]));
-        first2final.sort(Comparator.comparingInt(r->r[0]));
         preEvo2postEvo.sort(Comparator.comparingInt(r->r[0]));
         System.out.println();
         System.out.print("=====================================================================================");
@@ -35,20 +30,18 @@ public class DetermineEvoLevels extends RomHandlerTest {
         System.out.println();
         System.out.println(romName + " - latest level up evolution: " + latestLevelUpEvo);
         System.out.println();
-        System.out.println("First to second:");
-        printRowList(first2second);
-        System.out.println("Second to final:");
-        printRowList(second2final);
-        System.out.println("First to final:");
-        printRowList(first2final);
-        System.out.println("All:");
+        System.out.println("All level-up evolutions [preEvoBST, postEvoBST, evoLevel]:");
         printRowList(preEvo2postEvo);
         System.out.println();
 
-        getNonLevelUpEvoLevels(nonLevelUpEvos, latestLevelUpEvo, preEvo2postEvo, first2second, second2final, first2final);
+        getNonLevelUpEvoLevels(nonLevelUpEvos, latestLevelUpEvo, preEvo2postEvo);
+        long end = System.nanoTime();
+        System.out.println("Elapsed time: " + (end - start) / 1_000_000 + " ms");
     }
 
     private void findLevelUpAndNonLevelUpEvos(SpeciesSet allSpecies, List<Species> levelUpEvos, List<Species> nonLevelUpEvos) {
+        // TODO if split evos where one line gets to the end with only level-up, count that path as level up
+        // make the lists evolution centric (List<Evolution>)
         for (Species pk : allSpecies) {
             if (!pk.getEvolutionsTo().isEmpty() || // Skip if not base stage
                     pk.getEvolutionsFrom().isEmpty()) { // Skip if it does not have an evolution
@@ -59,12 +52,12 @@ public class DetermineEvoLevels extends RomHandlerTest {
             for (Evolution evo : evolutions) {
                 if (!evo.getType().usesLevel()) {
                     isNotLevelEvo = true;
-                    break;
                 } else {
                     for (Evolution secondEvo : evo.getTo().getEvolutionsFrom()) {
                         if (!secondEvo.getType().usesLevel()) {
                             isNotLevelEvo = true;
-                            break;
+                        } else {
+                            isNotLevelEvo = false;
                         }
                     }
                 }
@@ -77,9 +70,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
         }
     }
 
-    private int getLevelUpTriplets(List<Species> levelUpEvos, List<int[]> preEvo2postEvo,
-                                   List<int[]> first2second, List<int[]> second2final, List<int[]> first2final,
-                                   int depth) {
+    private int getLevelUpTriplets(List<Species> levelUpEvos, List<int[]> preEvo2postEvo) {
         int latestLevelUpEvo = 0;
         for (Species pk : levelUpEvos) {
             for (Evolution evo : pk.getEvolutionsFrom()) {
@@ -87,15 +78,9 @@ public class DetermineEvoLevels extends RomHandlerTest {
                 int evoLevel = evo.getExtraInfo();
                 int[] triplet = {getBST(pk), getBST(evoOfPk), evoLevel};
                 preEvo2postEvo.add(triplet);
-                if (depth == 0 && evoOfPk.getEvolutionsFrom().isEmpty()) {
-                    first2final.add(triplet);
-                } else if (depth == 1 && evoOfPk.getEvolutionsFrom().isEmpty()) {
-                    second2final.add(triplet);
-                } else {
-                    first2second.add(triplet);
-                    latestLevelUpEvo = Math.max(latestLevelUpEvo,
-                            getLevelUpTriplets(Collections.singletonList(evoOfPk), preEvo2postEvo,
-                                    first2second, second2final, first2final, 1));
+                // Handle potential second evolution
+                if (!evoOfPk.getEvolutionsFrom().isEmpty()) {
+                    latestLevelUpEvo = Math.max(latestLevelUpEvo, getLevelUpTriplets(Collections.singletonList(evoOfPk), preEvo2postEvo));
                 }
                 latestLevelUpEvo = Math.max(evoLevel, latestLevelUpEvo);
             }
@@ -116,9 +101,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
         System.out.println();
     }
 
-    private static void getNonLevelUpEvoLevels(List<Species> nonLevelUpEvos, int latestLevelUpEvo,
-                                               List<int[]> preEvo2postEvo, List<int[]> first2second,
-                                               List<int[]> second2final, List<int[]> first2final) {
+    private static void getNonLevelUpEvoLevels(List<Species> nonLevelUpEvos, int latestLevelUpEvo, List<int[]> preEvo2postEvo) {
         for (Species pk : nonLevelUpEvos) {
             for (Evolution firstEvo : pk.getEvolutionsFrom()) {
                 int evoLevelFirstStage = 0;
@@ -128,40 +111,25 @@ public class DetermineEvoLevels extends RomHandlerTest {
                     String pkOldName = pk.getName();
                     pk = firstEvo.getTo();
                     System.out.print(pkOldName + " --(Lv" + evoLevelFirstStage + ")--> ");
-                    getEvoLevelsUsingTriplet(pk, pk.getEvolutionsFrom(), evoLevelFirstStage, latestLevelUpEvo, preEvo2postEvo,
-                            first2second, second2final, first2final, 1);
+                    getEvoLevelsUsingTriplet(pk, pk.getEvolutionsFrom(), evoLevelFirstStage, latestLevelUpEvo, preEvo2postEvo);
                 } else {
-                    getEvoLevelsUsingTriplet(pk, Collections.singletonList(firstEvo), evoLevelFirstStage, latestLevelUpEvo, preEvo2postEvo,
-                            first2second, second2final, first2final, 0);
+                    getEvoLevelsUsingTriplet(pk, Collections.singletonList(firstEvo), evoLevelFirstStage, latestLevelUpEvo, preEvo2postEvo);
                 }
             }
         }
     }
 
     private static void getEvoLevelsUsingTriplet(Species pk, List<Evolution> evosToCheck, int evoLevelFirstStage,
-                                                 int latestLevelUpEvo, List<int[]> preEvo2postEvo,
-                                          List<int[]> first2second, List<int[]> second2final, List<int[]> first2final, int depth) {
+                                                 int latestLevelUpEvo, List<int[]> preEvo2postEvo) {
         int bstPk = getBST(pk);
 
         for (Evolution evo : evosToCheck) {
             Species evoOfPk = evo.getTo();
             int bstEvoOfPk = getBST(evoOfPk);
-            int chosenLevel = 0;
-            int chosenLevelTotal = 0;
-            if (depth == 0 && evoOfPk.getEvolutionsFrom().isEmpty()) {
-                chosenLevel = findEvolutionLevel(first2final, bstPk, bstEvoOfPk);
-                chosenLevelTotal = findEvolutionLevel(preEvo2postEvo, bstPk, bstEvoOfPk);
-            } else if (depth == 1 && evoOfPk.getEvolutionsFrom().isEmpty()) {
-                chosenLevel = findEvolutionLevel(second2final, bstPk, bstEvoOfPk);
-                chosenLevelTotal = findEvolutionLevel(preEvo2postEvo, bstPk, bstEvoOfPk);
-            } else {
-                chosenLevel = findEvolutionLevel(first2second, bstPk, bstEvoOfPk);
-                chosenLevelTotal = findEvolutionLevel(preEvo2postEvo, bstPk, bstEvoOfPk);
-            }
+            int chosenLevel = findEvolutionLevel(preEvo2postEvo, bstPk, bstEvoOfPk);
 
             System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
-                    + evoOfPk.getName() + " (BST: " + bstEvoOfPk
-                    + ")   AT LEVEL   (" + chosenLevel + " | " + chosenLevelTotal + ")");
+                    + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ")   AT LEVEL   " + chosenLevel);
 
             // Handle possible second-stage evolution
             // TODO make such that is at least 25% higher than the first evo, e.g., Rhydon appears at 42, so Rhyperior shall only appear at level 52.5~=53
@@ -169,12 +137,10 @@ public class DetermineEvoLevels extends RomHandlerTest {
                 Species evoOfEvoOfPk = evoOfEvo.getTo();
                 int bstEvoOfEvoOfPk = getBST(evoOfEvoOfPk);
 
-                int chosenLevel2 = findEvolutionLevel(second2final, bstEvoOfPk, bstEvoOfEvoOfPk);
-                int chosenLevelTotal2 = findEvolutionLevel(preEvo2postEvo, bstEvoOfPk, bstEvoOfEvoOfPk);
+                chosenLevel = findEvolutionLevel(preEvo2postEvo, bstEvoOfPk, bstEvoOfEvoOfPk);
 
                 System.out.println(evoOfPk.getName() + " (BST: " + bstEvoOfPk + ") --> "
-                        + evoOfEvoOfPk.getName() + " (BST: " + bstEvoOfEvoOfPk
-                        + ")   AT LEVEL   (" + chosenLevel2 + " | " + chosenLevelTotal2 + ")");
+                        + evoOfEvoOfPk.getName() + " (BST: " + bstEvoOfEvoOfPk + ")   AT LEVEL   " + chosenLevel);
             }
         }
     }
