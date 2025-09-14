@@ -34,7 +34,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
         printRowList(preEvo2postEvo);
         System.out.println();
 
-        getNonLevelUpEvoLevels(nonLevelUpEvos, latestLevelUpEvo, preEvo2postEvo);
+        getNonLevelUpEvoLevels(nonLevelUpEvos, preEvo2postEvo);
 
         long end = System.nanoTime();
         System.out.println("Elapsed time: " + (end - start) / 1_000_000 + " ms");
@@ -42,29 +42,11 @@ public class DetermineEvoLevels extends RomHandlerTest {
 
     private void findLevelUpAndNonLevelUpEvos(SpeciesSet allSpecies, List<Evolution> levelUpEvos, List<Evolution> nonLevelUpEvos) {
         for (Species pk : allSpecies) {
-            if (!pk.getEvolutionsTo().isEmpty() || // Skip if not base stage
-                    pk.getEvolutionsFrom().isEmpty()) { // Skip if it does not have an evolution
-                continue;
-            }
-            for (Evolution firstEvo : pk.getEvolutionsFrom()) {
-                if (!firstEvo.getType().usesLevel()) {
-                    nonLevelUpEvos.add(firstEvo);
-                    for (Evolution secondEvo : firstEvo.getTo().getEvolutionsFrom()) {
-                        if (!secondEvo.getType().usesLevel()) {
-                            nonLevelUpEvos.add(secondEvo);
-                        }
-                    }
-                } else if (firstEvo.getTo().getEvolutionsFrom().isEmpty()) { // Level-up evo without 3rd stage
-                    levelUpEvos.add(firstEvo);
-                } else { // Level-up evo with 3rd stage
-                    for (Evolution secondEvo : firstEvo.getTo().getEvolutionsFrom()) {
-                        if (!secondEvo.getType().usesLevel()) {
-                            nonLevelUpEvos.add(secondEvo);
-                        } else {
-                            levelUpEvos.add(firstEvo);
-                            levelUpEvos.add(secondEvo);
-                        }
-                    }
+            for (Evolution evoTo : pk.getEvolutionsTo()) {
+                if (evoTo.getType().usesLevel()) {
+                    levelUpEvos.add(evoTo);
+                } else {
+                    nonLevelUpEvos.add(evoTo);
                 }
             }
         }
@@ -94,7 +76,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
         System.out.println();
     }
 
-    private static void getNonLevelUpEvoLevels(List<Evolution> nonLevelUpEvos, int latestLevelUpEvo, List<int[]> preEvo2postEvo) {
+    private static void getNonLevelUpEvoLevels(List<Evolution> nonLevelUpEvos, List<int[]> preEvo2postEvo) {
         for (Evolution evo : nonLevelUpEvos) {
             int evoLevelFirstStage = 0;
             // Handle if pre evo is level up evolution of another Pokemon exists and is level-up evo
@@ -115,17 +97,21 @@ public class DetermineEvoLevels extends RomHandlerTest {
 
         int chosenLevel = findEvolutionLevel(preEvo2postEvo, bstPk, bstEvoOfPk);
 
+        if (!pk.getEvolutionsTo().isEmpty()) {
+            Evolution evoToPk = pk.getEvolutionsTo().get(0);
+            if (evoToPk.getType().usesLevel()) {
+                chosenLevel = Math.max(chosenLevel, (int) Math.ceil(1.25 * evoToPk.getExtraInfo()));
+            }
+        }
+
         System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
                 + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ")   AT LEVEL   " + chosenLevel);
-
-        // TODO make such that is at least 25% higher than the first evo, e.g., Rhydon appears at 42, so Rhyperior shall only appear at level 52.5~=53
-        // TODO if there follows another evo which is by level up again, also make sure to have the level low enough of first evo
     }
 
     public static int findEvolutionLevel(List<int[]> samples, int targetPreBST, int targetPostBST) {
 
         // ==== CONFIGURATION PARAMETERS ====
-        double p = 2;                // distance weighting exponent: 1/d^p
+        double p = 1;                // distance weighting exponent: 1/d^p
         double preFactor = 1.5;          // scaling factor for preBST
         double postFactor = 3;         // scaling factor for postBST
         double largeWeightForZero = 1; // weight to use if distance is zero
@@ -148,14 +134,10 @@ public class DetermineEvoLevels extends RomHandlerTest {
             double weight = dist == 0 ? largeWeightForZero : 1.0 / Math.pow(dist, p);
 
             // Pre/post scaling
-//            double scaledPre = 1 + preFactor * ((double) targetPreBST / samplePre - 1);
-//            double scaledPost = 1 + postFactor * ((double) targetPostBST / samplePost - 1);
             double scaledPre = Math.pow((double) targetPreBST / samplePre, preFactor);
             double scaledPost = Math.pow((double) targetPostBST / samplePost, postFactor);
-//            double scaledTotal = Math.pow((double) (targetPreBST + targetPostBST) / (samplePre + samplePost), postFactor);
 
             double adjustedLevel = sampleLevel * (scaledPre + scaledPost) / 2.0;
-//            double adjustedLevel = sampleLevel * scaledTotal;
 
             weightedSum += adjustedLevel * weight;
             weightSum += weight;
