@@ -42,11 +42,11 @@ public class DetermineEvoLevels extends RomHandlerTest {
 
     private void findLevelUpAndNonLevelUpEvos(SpeciesSet allSpecies, List<Evolution> levelUpEvos, List<Evolution> nonLevelUpEvos) {
         for (Species pk : allSpecies) {
-            for (Evolution evoTo : pk.getEvolutionsTo()) {
-                if (evoTo.getType().usesLevel()) {
-                    levelUpEvos.add(evoTo);
+            for (Evolution evoFrom : pk.getEvolutionsFrom()) {
+                if (evoFrom.getType().usesLevel()) {
+                    levelUpEvos.add(evoFrom);
                 } else {
-                    nonLevelUpEvos.add(evoTo);
+                    nonLevelUpEvos.add(evoFrom);
                 }
             }
         }

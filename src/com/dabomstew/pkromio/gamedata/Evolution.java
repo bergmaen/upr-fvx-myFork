@@ -31,6 +31,7 @@ public class Evolution implements Comparable<Evolution> {
     private Species to;
     private EvolutionType type;
     private int extraInfo;
+    private int estimatedEvoLvl;
 
     // only relevant for Gen 7
     private int forme;
@@ -88,6 +89,14 @@ public class Evolution implements Comparable<Evolution> {
 
     public void setExtraInfo(int extraInfo) {
         this.extraInfo = extraInfo;
+    }
+
+    public int getEstimatedEvoLvl() {
+        return estimatedEvoLvl;
+    }
+
+    public void setEstimatedEvoLvl(int estimatedEvoLvl) {
+        this.estimatedEvoLvl = estimatedEvoLvl;
     }
 
     public int getForme() {
