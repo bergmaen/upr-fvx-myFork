@@ -12,7 +12,9 @@ public class DetermineEvoLevels extends RomHandlerTest {
     @MethodSource("getRomNames")
     public void findAverageEvoStrength(String romName) {
         loadROM(romName);
+
         long start = System.nanoTime();
+
         SpeciesSet allSpecies = romHandler.getSpeciesSet();
 
         List<Evolution> levelUpEvos = new ArrayList<>();
@@ -22,8 +24,17 @@ public class DetermineEvoLevels extends RomHandlerTest {
         List<int[]> preEvo2postEvo = new ArrayList<>();
         int latestLevelUpEvo = getLevelUpTriplets(levelUpEvos, preEvo2postEvo);
 
+        for (Evolution evo : nonLevelUpEvos) {
+            evo.setEstimatedEvoLvl(findEvolutionLevel(preEvo2postEvo, getBST(evo.getFrom()), getBST(evo.getTo())));
+        }
+
+        postprocessNonLevelUpEvos(nonLevelUpEvos);
+
+        long end = System.nanoTime();
+        System.out.println("Elapsed time: " + (end - start) / 1_000_000 + " ms");
+
         // Display the level-up triplets (sorted for better readability)
-        preEvo2postEvo.sort(Comparator.comparingInt(r->r[0]));
+        preEvo2postEvo.sort(Comparator.comparingInt(r -> r[0]));
         System.out.println();
         System.out.print("=====================================================================================");
         System.out.println("=====================================================================================");
@@ -34,10 +45,8 @@ public class DetermineEvoLevels extends RomHandlerTest {
         printRowList(preEvo2postEvo);
         System.out.println();
 
-        getNonLevelUpEvoLevels(nonLevelUpEvos, preEvo2postEvo);
+        // print results
 
-        long end = System.nanoTime();
-        System.out.println("Elapsed time: " + (end - start) / 1_000_000 + " ms");
     }
 
     private void findLevelUpAndNonLevelUpEvos(SpeciesSet allSpecies, List<Evolution> levelUpEvos, List<Evolution> nonLevelUpEvos) {
@@ -45,6 +54,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
             for (Evolution evoFrom : pk.getEvolutionsFrom()) {
                 if (evoFrom.getType().usesLevel()) {
                     levelUpEvos.add(evoFrom);
+                    evoFrom.setEstimatedEvoLvl(evoFrom.getExtraInfo());
                 } else {
                     nonLevelUpEvos.add(evoFrom);
                 }
@@ -65,47 +75,6 @@ public class DetermineEvoLevels extends RomHandlerTest {
 
     private static int getBST(Species pk) {
         return pk.getHp() + pk.getAttack() + pk.getDefense() + pk.getSpatk() + pk.getSpdef() + pk.getSpeed() + pk.getSpecial();
-    }
-
-    private static void printRowList(List<int[]> rowList) {
-        for (int k = 0; k < rowList.size(); k++) {
-            int[] row = rowList.get(k);
-            System.out.print(Arrays.toString(row) + " ");
-            if ((k + 1) % 10 == 0) System.out.println();
-        }
-        System.out.println();
-    }
-
-    private static void getNonLevelUpEvoLevels(List<Evolution> nonLevelUpEvos, List<int[]> preEvo2postEvo) {
-        for (Evolution evo : nonLevelUpEvos) {
-            int evoLevelFirstStage = 0;
-            // Handle if pre evo is level up evolution of another Pokemon exists and is level-up evo
-            List<Evolution> previousEvo = evo.getFrom().getEvolutionsTo();
-            if (!previousEvo.isEmpty() && previousEvo.get(0).getType().usesLevel()) {
-                evoLevelFirstStage = previousEvo.get(0).getExtraInfo();
-                System.out.print(previousEvo.get(0).getFrom().getName() + " --(Lv" + evoLevelFirstStage + ")--> ");
-            }
-            getEvoLevelsUsingTriplet(evo, evoLevelFirstStage, preEvo2postEvo);
-        }
-    }
-
-    private static void getEvoLevelsUsingTriplet(Evolution evo, int evoLevelFirstStage, List<int[]> preEvo2postEvo) {
-        Species pk = evo.getFrom();
-        int bstPk = getBST(pk);
-        Species evoOfPk = evo.getTo();
-        int bstEvoOfPk = getBST(evoOfPk);
-
-        int chosenLevel = findEvolutionLevel(preEvo2postEvo, bstPk, bstEvoOfPk);
-
-        if (!pk.getEvolutionsTo().isEmpty()) {
-            Evolution evoToPk = pk.getEvolutionsTo().get(0);
-            if (evoToPk.getType().usesLevel()) {
-                chosenLevel = Math.max(chosenLevel, (int) Math.ceil(1.25 * evoToPk.getExtraInfo()));
-            }
-        }
-
-        System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
-                + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ")   AT LEVEL   " + chosenLevel);
     }
 
     public static int findEvolutionLevel(List<int[]> samples, int targetPreBST, int targetPostBST) {
@@ -146,4 +115,38 @@ public class DetermineEvoLevels extends RomHandlerTest {
         // Return weighted average
         return (int) Math.round(weightedSum / weightSum);
     }
+
+    private static void postprocessNonLevelUpEvos(List<Evolution> nonLevelUpEvos) {
+        for (Evolution evo:nonLevelUpEvos) {
+            if (!evo.getFrom().getEvolutionsTo().isEmpty()) { // the pre-evolution has a pre evolution
+                Evolution previousEvo = evo.getFrom().getEvolutionsTo().get(0);
+                evo.setEstimatedEvoLvl(
+                        Math.max(evo.getEstimatedEvoLvl(), (int) Math.ceil(1.25 * previousEvo.getEstimatedEvoLvl())));
+            }
+            // TODO, also do a 'check post evo far enough away (in particular for baby pokemon)
+        }
+    }
+
+    private static void printRowList(List<int[]> rowList) {
+        for (int k = 0; k < rowList.size(); k++) {
+            int[] row = rowList.get(k);
+            System.out.print(Arrays.toString(row) + " ");
+            if ((k + 1) % 10 == 0) System.out.println();
+        }
+        System.out.println();
+    }
+
+    // private void printResults(...) {
+    //           System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
+////                + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ")   AT LEVEL   " + chosenLevel);
+//
+//    int evoLevelFirstStage = 0;
+//    // Handle if pre evo is level up evolution of another Pokemon exists and is level-up evo
+//    List<Evolution> previousEvo = evo.getFrom().getEvolutionsTo();
+//            if (!previousEvo.isEmpty() && previousEvo.get(0).getType().usesLevel()) {
+//        evoLevelFirstStage = previousEvo.get(0).getExtraInfo();
+//        System.out.print(previousEvo.get(0).getFrom().getName() + " --(Lv" + evoLevelFirstStage + ")--> ");
+//    }
+//}
+
 }
