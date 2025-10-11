@@ -45,7 +45,7 @@ public class DetermineEvoLevels extends RomHandlerTest {
         printRowList(preEvo2postEvo);
         System.out.println();
 
-        // print results
+        printResults(nonLevelUpEvos);
 
     }
 
@@ -117,13 +117,18 @@ public class DetermineEvoLevels extends RomHandlerTest {
     }
 
     private static void postprocessNonLevelUpEvos(List<Evolution> nonLevelUpEvos) {
-        for (Evolution evo:nonLevelUpEvos) {
-            if (!evo.getFrom().getEvolutionsTo().isEmpty()) { // the pre-evolution has a pre evolution
+        for (Evolution evo : nonLevelUpEvos) {
+            if (!evo.getFrom().getEvolutionsTo().isEmpty()) { // the pre-evolution has a pre-evolution
                 Evolution previousEvo = evo.getFrom().getEvolutionsTo().get(0);
                 evo.setEstimatedEvoLvl(
                         Math.max(evo.getEstimatedEvoLvl(), (int) Math.ceil(1.25 * previousEvo.getEstimatedEvoLvl())));
             }
-            // TODO, also do a 'check post evo far enough away (in particular for baby pokemon)
+            if (!evo.getTo().getEvolutionsFrom().isEmpty()) { // the evolution has an evolution
+                for (Evolution nextEvo : evo.getTo().getEvolutionsFrom()) {
+                    evo.setEstimatedEvoLvl(
+                            Math.min(evo.getEstimatedEvoLvl(), (int) Math.ceil(0.8 * nextEvo.getEstimatedEvoLvl())));
+                }
+            }
         }
     }
 
@@ -136,17 +141,20 @@ public class DetermineEvoLevels extends RomHandlerTest {
         System.out.println();
     }
 
-    // private void printResults(...) {
-    //           System.out.println(pk.getName() + " (BST: " + bstPk + ") --> "
-////                + evoOfPk.getName() + " (BST: " + bstEvoOfPk + ")   AT LEVEL   " + chosenLevel);
-//
-//    int evoLevelFirstStage = 0;
-//    // Handle if pre evo is level up evolution of another Pokemon exists and is level-up evo
-//    List<Evolution> previousEvo = evo.getFrom().getEvolutionsTo();
-//            if (!previousEvo.isEmpty() && previousEvo.get(0).getType().usesLevel()) {
-//        evoLevelFirstStage = previousEvo.get(0).getExtraInfo();
-//        System.out.print(previousEvo.get(0).getFrom().getName() + " --(Lv" + evoLevelFirstStage + ")--> ");
-//    }
-//}
+    private void printResults(List<Evolution> nonLevelUpEvos) {
+        for (Evolution evo:nonLevelUpEvos) {
+            Species pk = evo.getFrom();
+            Species evoOfPk = evo.getTo();
 
+            // Handle if pre evo is level up evolution of another Pokemon exists and is level-up evo
+            List<Evolution> previousEvo = evo.getFrom().getEvolutionsTo();
+            if (!previousEvo.isEmpty() && previousEvo.get(0).getType().usesLevel()) {
+                int evoLevelFirstStage = previousEvo.get(0).getExtraInfo();
+                System.out.print(previousEvo.get(0).getFrom().getName() + " --(Lv" + evoLevelFirstStage + ")--> ");
+            }
+
+            System.out.println(pk.getName() + " (BST: " + getBST(pk) + ") --> "
+                    + evoOfPk.getName() + " (BST: " + getBST(evoOfPk) + ")   AT LEVEL   " + evo.getEstimatedEvoLvl());
+        }
+    }
 }
