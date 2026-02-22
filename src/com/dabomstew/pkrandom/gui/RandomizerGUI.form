@@ -1358,9 +1358,9 @@
                         <properties>
                           <enabled value="false"/>
                           <majorTickSpacing value="10"/>
-                          <maximum value="50"/>
-                          <minimum value="-50"/>
-                          <minorTickSpacing value="2"/>
+                          <maximum value="70"/>
+                          <minimum value="30"/>
+                          <minorTickSpacing value="1"/>
                           <paintLabels value="true"/>
                           <paintTicks value="true"/>
                           <snapToTicks value="true"/>
@@ -2067,8 +2067,8 @@
                           <enabled value="false"/>
                           <majorTickSpacing value="10"/>
                           <maximum value="50"/>
-                          <minimum value="-50"/>
-                          <minorTickSpacing value="2"/>
+                          <minimum value="-20"/>
+                          <minorTickSpacing value="1"/>
                           <paintLabels value="true"/>
                           <paintTicks value="true"/>
                           <snapToTicks value="true"/>
@@ -2107,8 +2107,8 @@
                           <enabled value="false"/>
                           <majorTickSpacing value="10"/>
                           <maximum value="50"/>
-                          <minimum value="-50"/>
-                          <minorTickSpacing value="2"/>
+                          <minimum value="20"/>
+                          <minorTickSpacing value="1"/>
                           <paintLabels value="true"/>
                           <paintTicks value="true"/>
                           <snapToTicks value="true"/>
@@ -2962,9 +2962,9 @@
                         <properties>
                           <enabled value="false"/>
                           <majorTickSpacing value="10"/>
-                          <maximum value="50"/>
-                          <minimum value="-50"/>
-                          <minorTickSpacing value="2"/>
+                          <maximum value="80"/>
+                          <minimum value="40"/>
+                          <minorTickSpacing value="1"/>
                           <paintLabels value="true"/>
                           <paintTicks value="true"/>
                           <snapToTicks value="true"/>
