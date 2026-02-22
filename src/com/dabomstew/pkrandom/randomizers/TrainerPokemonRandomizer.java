@@ -532,13 +532,7 @@ public class TrainerPokemonRandomizer extends Randomizer {
                             !bannedTypes.contains(sp.getSecondaryType(false))));
         }
 
-        double evoLvlModifier = 1 + settings.getTrainersEvolutionLevelModifier() / 100.0;
-        if (doNotUsePrematureEvos) {
-            pickFrom = pickFrom.filter(p -> p.isLegalEvolutionAtLevel(level, evoLvlModifier));
-        }
-        if (evolveAsFarAsLegal) {
-            pickFrom = pickFrom.filter(p -> !p.hasLegalEvolutionAtLevel(level, evoLvlModifier));
-        }
+        pickFrom = filterEvolutions(level, doNotUsePrematureEvos, evolveAsFarAsLegal, pickFrom);
 
         if (usePlacementHistory) {
             // "Distributed" settings
@@ -578,12 +572,27 @@ public class TrainerPokemonRandomizer extends Randomizer {
             if (pickFrom.isEmpty()) {
                 pickFrom.addAll(alreadyPlaced);
                 alreadyPlaced.clear();
+
+                // Re-do evolution filtering to not break any evolution stage contracts
+                pickFrom = filterEvolutions(level, doNotUsePrematureEvos, evolveAsFarAsLegal, pickFrom);
             }
         }
+
 
         return usePowerLevels ?
                 pickFrom.getRandomSimilarStrengthSpecies(current, random) :
                 pickFrom.getRandomSpecies(random);
+    }
+
+    private SpeciesSet filterEvolutions(int level, boolean doNotUsePrematureEvos, boolean evolveAsFarAsLegal, SpeciesSet pickFrom) {
+        double evoLvlModifier = 1 + settings.getTrainersEvolutionLevelModifier() / 100.0;
+        if (doNotUsePrematureEvos) {
+            pickFrom = pickFrom.filter(p -> p.isLegalEvolutionAtLevel(level, evoLvlModifier));
+        }
+        if (evolveAsFarAsLegal) {
+            pickFrom = pickFrom.filter(p -> !p.hasLegalEvolutionAtLevel(level, evoLvlModifier));
+        }
+        return pickFrom;
     }
 
     /**
