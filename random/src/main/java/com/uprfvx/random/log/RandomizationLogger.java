@@ -19,6 +19,8 @@ import java.util.stream.Collectors;
 
 public class RandomizationLogger {
 
+    private final boolean DEBUG = true;
+
     private static final int TM_COMP_ROW_WIDTH = 5;
     private static final int TYPE_NAME_LEN = 8;
 
@@ -397,7 +399,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogTypeEffectiveness() {
-        return typeEffUpdater.isUpdated() || typeEffRandomizer.isChangesMade();
+        return typeEffUpdater.isUpdated() || typeEffRandomizer.isChangesMade() || DEBUG;
     }
 
     private void logTypeEffectiveness() {
@@ -417,7 +419,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogEvolutions() {
-        return evoRandomizer.isChangesMade();
+        return evoRandomizer.isChangesMade() || DEBUG;
     }
 
     private void logEvolutions() {
@@ -449,7 +451,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogEvolutionImprovements() {
-        return !romHandler.getPreImprovedEvolutions().isEmpty();
+        return !romHandler.getPreImprovedEvolutions().isEmpty() || DEBUG;
     }
 
     private void logEvolutionImprovements() {
@@ -554,7 +556,7 @@ public class RandomizationLogger {
     private boolean shouldLogSpeciesTraits() {
         return (speciesBSUpdater.isUpdated() || speciesBSRandomizer.isChangesMade()
                 || speciesTypeRandomizer.isChangesMade() || speciesAbilityRandomizer.isChangesMade()
-                || encHeldItemRandomizer.isChangesMade());
+                || encHeldItemRandomizer.isChangesMade() || DEBUG);
     }
 
     private void logSpeciesTraits() {
@@ -667,7 +669,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogStarters() {
-        return starterRandomizer.isChangesMade();
+        return starterRandomizer.isChangesMade() || DEBUG;
     }
 
     private void logStarters() {
@@ -702,7 +704,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogMoveData() {
-        return (moveDataRandomizer.isChangesMade() || moveUpdater.isUpdated() || moveNameRandomizer.isChangesMade());
+        return (moveDataRandomizer.isChangesMade() || moveUpdater.isUpdated() || moveNameRandomizer.isChangesMade() || DEBUG);
     }
 
     private void logMoveData(List<String> originalMoveNames) {
@@ -754,7 +756,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogMovesets() {
-        return speciesMovesetRandomizer.isChangesMade() || settings.getMovesetsMod() == Settings.MovesetsMod.METRONOME_ONLY;
+        return speciesMovesetRandomizer.isChangesMade() || settings.getMovesetsMod() == Settings.MovesetsMod.METRONOME_ONLY || DEBUG;
     }
 
     private void logMovesets() {
@@ -829,7 +831,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogTMMoves() {
-        return tmtMoveRandomizer.isTMChangesMade() || settings.getMovesetsMod() == Settings.MovesetsMod.METRONOME_ONLY;
+        return tmtMoveRandomizer.isTMChangesMade() || settings.getMovesetsMod() == Settings.MovesetsMod.METRONOME_ONLY || DEBUG;
     }
 
     private void logTMMoves() {
@@ -848,7 +850,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogTMHMCompatibility() {
-        return tmhmtCompRandomizer.isTMHMChangesMade();
+        return tmhmtCompRandomizer.isTMHMChangesMade() || DEBUG;
     }
 
     private void logTMHMCompatibility() {
@@ -946,7 +948,7 @@ public class RandomizationLogger {
 
     private boolean shouldLogMoveTutorMoves() {
         return romHandler.hasMoveTutors() && (tmtMoveRandomizer.isTutorChangesMade() ||
-                settings.getMovesetsMod() == Settings.MovesetsMod.METRONOME_ONLY);
+                settings.getMovesetsMod() == Settings.MovesetsMod.METRONOME_ONLY || DEBUG);
     }
 
     private void logMoveTutorMoves(List<Integer> oldMtMoves) {
@@ -966,7 +968,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogMoveTutorCompatibility() {
-        return romHandler.hasMoveTutors() && tmhmtCompRandomizer.isTutorChangesMade();
+        return romHandler.hasMoveTutors() && (tmhmtCompRandomizer.isTutorChangesMade() || DEBUG);
     }
 
     private void logMoveTutorCompatibility() {
@@ -987,7 +989,7 @@ public class RandomizationLogger {
 
     private boolean shouldLogTrainers() {
         return trainerPokeRandomizer.isChangesMade() || trainerMovesetRandomizer.isChangesMade()
-                || trainerNameRandomizer.isChangesMade();
+                || trainerNameRandomizer.isChangesMade() || DEBUG;
     }
 
     private void logTrainers(List<String> originalTrainerNames) {
@@ -1064,18 +1066,18 @@ public class RandomizationLogger {
 
     private boolean shouldLogCustomMoves(Trainer t) {
         if (!t.pokemonHaveCustomMoves()) {
-            return false;
+            return false || DEBUG;
         }
         for (TrainerPokemon tp : t.getPokemon()) {
             if (!tp.isResetMoves()) {
-                return true;
+                return true || DEBUG;
             }
         }
-        return false;
+        return false || DEBUG;
     }
 
     private boolean shouldLogStaticPokemon() {
-        return romHandler.canChangeStaticPokemon() && staticPokeRandomizer.isStaticChangesMade();
+        return romHandler.canChangeStaticPokemon() && (staticPokeRandomizer.isStaticChangesMade() || DEBUG);
     }
 
     private void logStaticPokemon(List<StaticEncounter> oldStatics) {
@@ -1118,7 +1120,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogWildPokemon() {
-        return wildEncounterRandomizer.isChangesMade();
+        return wildEncounterRandomizer.isChangesMade() || DEBUG;
     }
 
     private void logWildPokemon() {
@@ -1168,7 +1170,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogInGameTrades() {
-        return tradeRandomizer.isChangesMade();
+        return tradeRandomizer.isChangesMade() || DEBUG;
     }
 
     private void logInGameTrades(List<InGameTrade> oldTrades) {
@@ -1196,7 +1198,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogShopItems() {
-        return itemRandomizer.isShopChangesMade();
+        return itemRandomizer.isShopChangesMade() || DEBUG;
     }
 
     private void logShopItems() {
@@ -1226,7 +1228,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogPickupItems() {
-        return itemRandomizer.isPickupChangesMade();
+        return itemRandomizer.isPickupChangesMade() || DEBUG;
     }
 
     private void logPickupItems() {
@@ -1260,7 +1262,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogMoveUpdates() {
-        return moveUpdater.isUpdated();
+        return moveUpdater.isUpdated() || DEBUG;
     }
 
     private void logMoveUpdates() {
@@ -1297,7 +1299,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogBaseStatUpdates() {
-        return speciesBSUpdater.isUpdated();
+        return speciesBSUpdater.isUpdated() || DEBUG;
     }
 
     private void logBaseStatsUpdates() {
@@ -1317,7 +1319,7 @@ public class RandomizationLogger {
     }
 
     private boolean shouldLogTypeEffectivenessUpdates() {
-        return typeEffUpdater.isUpdated();
+        return typeEffUpdater.isUpdated() || DEBUG;
     }
 
     private void logTypeEffectivenessUpdates() {
