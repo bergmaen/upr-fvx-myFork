@@ -1400,7 +1400,7 @@ public class RandomizerGUI {
     }
 
     private void saveLogFile(String filename, byte[] out) throws IOException {
-        FileOutputStream fos = new FileOutputStream(filename + ".log");
+        FileOutputStream fos = new FileOutputStream(filename.split("\\.")[0] + ".txt");
         fos.write(0xEF);
         fos.write(0xBB);
         fos.write(0xBF);
