@@ -7,7 +7,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
@@ -16,6 +15,48 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 public class TrainerRandomizersTest extends RandomizerTest {
 
     private static final double UBIQUITOUS_MOVE_RATE = 0.20;
+
+    @ParameterizedTest
+    @MethodSource("getRomNames")
+    public void randomizeTrainerPokes_AllowAltFormes_AltFormesAreUsed(String romName) {
+        assumeTrue(getGenerationNumberOf(romName) >= 4);
+        activateRomHandler(romName);
+        Settings s = new Settings();
+        s.setTrainersMod(Settings.TrainersMod.RANDOM);
+        s.setAllowTrainerAlternateFormes(true);
+        new TrainerPokemonRandomizer(romHandler, s, RND).randomizeTrainerPokes();
+
+        boolean altFormesUsed = false;
+        for (Trainer tr : romHandler.getTrainers()) {
+            System.out.println(tr);
+            if (tr.getPokemon().stream().anyMatch(tp -> !tp.getSpecies().isBaseForme())) {
+                altFormesUsed = true;
+                break;
+            }
+        }
+        assertTrue(altFormesUsed);
+    }
+
+    @ParameterizedTest
+    @MethodSource("getRomNames")
+    public void randomizeTrainerPokes_BanAltFormes_AltFormesAreNotUsed(String romName) {
+        assumeTrue(getGenerationNumberOf(romName) >= 4);
+        activateRomHandler(romName);
+        Settings s = new Settings();
+        s.setTrainersMod(Settings.TrainersMod.RANDOM);
+        s.setAllowTrainerAlternateFormes(false);
+        new TrainerPokemonRandomizer(romHandler, s, RND).randomizeTrainerPokes();
+
+        boolean altFormesUsed = false;
+        for (Trainer tr : romHandler.getTrainers()) {
+            System.out.println(tr);
+            if (tr.getPokemon().stream().anyMatch(tp -> !tp.getSpecies().isBaseForme())) {
+                altFormesUsed = true;
+                break;
+            }
+        }
+        assertFalse(altFormesUsed);
+    }
 
     @ParameterizedTest
     @MethodSource("getRomNames")
