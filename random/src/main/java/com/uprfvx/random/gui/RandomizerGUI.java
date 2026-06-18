@@ -50,13 +50,11 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
-import java.util.zip.CRC32;
 
 /**
  * The main GUI for the Universal Pokemon Randomizer FVX, containing the various options available and such.
@@ -681,7 +679,7 @@ public class RandomizerGUI {
         tmLevelupMoveSanityCheckBox.addActionListener(_ -> enableOrDisableSubControls());
         mtLevelupMoveSanityCheckBox.addActionListener(_ -> enableOrDisableSubControls());
         noIrregularAltFormesCheckBox.addActionListener(_ -> enableOrDisableSubControls());
-        noPrematureEvosCheckbox.addActionListener(e -> enableOrDisableSubControls());
+        noPrematureEvosCheckbox.addActionListener(_ -> enableOrDisableSubControls());
         ptIsDualTypeCheckBox.addActionListener(_ -> enableOrDisableSubControls());
         spTypeNoDualCheckbox.addActionListener(_->enableOrDisableSubControls());
         teUnchangedRadioButton.addActionListener(_ -> enableOrDisableSubControls());
@@ -1116,6 +1114,7 @@ public class RandomizerGUI {
             saveDirectory = fh.getParentFile().getAbsolutePath();
             attemptWriteConfig();
             saveRandomizedRom(outputType, fh);
+
         } else if (allowed && batchRandomizationSettings.isBatchRandomizationEnabled()) {
             int numberOfRandomizedROMs = batchRandomizationSettings.getNumberOfRandomizedROMs();
             int startingIndex = batchRandomizationSettings.getStartingIndex();
@@ -1129,18 +1128,9 @@ public class RandomizerGUI {
                 protected Void doInBackground() {
                     frame.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
                     SwingUtilities.invokeLater(() -> batchProgressDialog.setVisible(true));
+
                     for (i = startingIndex; i < endingIndex; i++) {
-                        String fileName = batchRandomizationSettings.getOutputDirectory() +
-                                File.separator +
-                                batchRandomizationSettings.getFileNamePrefix() +
-                                i;
-                        if (outputType == SaveType.FILE) {
-                            fileName += '.' + romHandler.getDefaultExtension();
-                        }
-                        File rom = new File(fileName);
-                        if (outputType == SaveType.DIRECTORY) {
-                            rom.mkdirs();
-                        }
+                        File rom = prepareFile();
                         int currentRomNumber = i - startingIndex + 1;
 
                         SwingUtilities.invokeLater(
@@ -1151,6 +1141,21 @@ public class RandomizerGUI {
                         saveRandomizedRom(outputType, rom);
                     }
                     return null;
+                }
+
+                private File prepareFile() {
+                    String fileName = batchRandomizationSettings.getOutputDirectory() +
+                            File.separator +
+                            batchRandomizationSettings.getFileNamePrefix() +
+                            i;
+                    if (outputType == SaveType.FILE) {
+                        fileName += '.' + romHandler.getDefaultExtension();
+                    }
+                    File rom = new File(fileName);
+                    if (outputType == SaveType.DIRECTORY) {
+                        boolean _ = rom.mkdirs();
+                    }
+                    return rom;
                 }
 
                 @Override
@@ -1289,7 +1294,6 @@ public class RandomizerGUI {
             t.start();
             if (batchRandomization) {
                 t.join();
-                reinitializeRomHandler(true);
             }
         } catch (Exception ex) {
             attemptToLogException(ex, "GUI.saveFailed", "GUI.saveFailedNoLog", settings.toString(), Long.toString(seed));
@@ -1350,36 +1354,8 @@ public class RandomizerGUI {
         }
 
         opDialog.setVisible(false);
-        byte[] out = baos.toByteArray();
 
-        if (raceMode) {
-            JOptionPane.showMessageDialog(frame,
-                    String.format(bundle.getString("GUI.raceModeCheckValuePopup"), checkValue));
-        } else if (batchRandomization && batchRandomizationSettings.shouldGenerateLogFile()) {
-            try {
-                saveLogFile(filename, out);
-            } catch (IOException e) {
-                JOptionPane.showMessageDialog(frame,
-                        bundle.getString("GUI.logSaveFailed"));
-                return;
-            }
-        } else if (!batchRandomization) {
-            int response = JOptionPane.showConfirmDialog(frame,
-                    bundle.getString("GUI.saveLogDialog.text"),
-                    bundle.getString("GUI.saveLogDialog.title"),
-                    JOptionPane.YES_NO_OPTION);
-            if (response == JOptionPane.YES_OPTION) {
-                try {
-                    saveLogFile(filename, out);
-                } catch (IOException e) {
-                    JOptionPane.showMessageDialog(frame,
-                            bundle.getString("GUI.logSaveFailed"));
-                    return;
-                }
-                JOptionPane.showMessageDialog(frame,
-                        String.format(bundle.getString("GUI.logSaved"), filename));
-            }
-        }
+        showSaveLogDialog(filename, baos, checkValue, raceMode, batchRandomization);
 
         if (presetMode) {
             JOptionPane.showMessageDialog(frame,
@@ -1393,13 +1369,45 @@ public class RandomizerGUI {
         }
 
         // Done
-        if (this.unloadGameOnSuccess) {
+        if (this.unloadGameOnSuccess && !batchRandomization) {
             unloadRomHandler();
             initialState();
         } else {
-            reinitializeRomHandler(false);
+            reinitializeRomHandler(batchRandomization);
         }
 
+    }
+
+    private void showSaveLogDialog(String filename, ByteArrayOutputStream baos,
+                                   int checkValue,
+                                   boolean raceMode, boolean batchRandomization) {
+        byte[] out = baos.toByteArray();
+        if (raceMode) {
+            JOptionPane.showMessageDialog(frame,
+                    String.format(bundle.getString("GUI.raceModeCheckValuePopup"), checkValue));
+        } else if (batchRandomization && batchRandomizationSettings.shouldGenerateLogFile()) {
+            try {
+                saveLogFile(filename, out);
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(frame,
+                        bundle.getString("GUI.logSaveFailed"));
+            }
+        } else if (!batchRandomization) {
+            int response = JOptionPane.showConfirmDialog(frame,
+                    bundle.getString("GUI.saveLogDialog.text"),
+                    bundle.getString("GUI.saveLogDialog.title"),
+                    JOptionPane.YES_NO_OPTION);
+            if (response == JOptionPane.YES_OPTION) {
+                try {
+                    saveLogFile(filename, out);
+                } catch (IOException e) {
+                    JOptionPane.showMessageDialog(frame,
+                            bundle.getString("GUI.logSaveFailed"));
+                }
+                JOptionPane.showMessageDialog(frame,
+                        String.format(bundle.getString("GUI.logSaved"), filename));
+            }
+        }
     }
 
     private void recordCPGAsLastUsed(CustomPlayerGraphics cpg) {
@@ -1689,7 +1697,6 @@ public class RandomizerGUI {
     // you're doing.
     private void reinitializeRomHandler(boolean batchRandomization) {
         File romFile = new File(romHandler.loadedFilename());
-        unloadRomHandler();
         Thread t = openRom(romFile, true);
         if (batchRandomization) {
             try {
