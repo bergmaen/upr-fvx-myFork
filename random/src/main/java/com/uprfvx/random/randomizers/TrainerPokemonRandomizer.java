@@ -22,8 +22,8 @@ public class TrainerPokemonRandomizer extends Randomizer {
 
     private final Map<Species, Integer> placementHistory = new HashMap<>();
 
-    private Set<Type> usedUberTypes = EnumSet.noneOf(Type.class);
-    private Map<Trainer, Type> trainerTypes = new HashMap<>();
+    private final Set<Type> usedUberTypes = EnumSet.noneOf(Type.class);
+    private final Map<Trainer, Type> trainerTypes = new HashMap<>();
 
     public TrainerPokemonRandomizer(RomHandler romHandler, Settings settings, Random random) {
         super(romHandler, settings, random);
@@ -108,6 +108,7 @@ public class TrainerPokemonRandomizer extends Randomizer {
                     || pk.getAbility2() == AbilityIDs.wonderGuard
                     || pk.getAbility3() == AbilityIDs.wonderGuard);
         }
+        SpeciesSet altFormes = cachedAll.filter(pk -> !pk.isBaseForme());
 
         List<Trainer> currentTrainers = romHandler.getTrainers();
 
@@ -182,7 +183,7 @@ public class TrainerPokemonRandomizer extends Randomizer {
                     trainerPokemonList.sort((tp1, tp2) -> Integer.compare(tp2.getLevel(), tp1.getLevel()));
                 }
                 //Put starter back, in front
-                trainerPokemonList.add(0, starter);
+                trainerPokemonList.addFirst(starter);
 
             } else if (eliteFourTrackPokemon || skipStarter) {
                 // Sort Pokemon list back to front, and then put highest level Pokemon first
@@ -246,6 +247,9 @@ public class TrainerPokemonRandomizer extends Randomizer {
                     }
                     if(!wgAllowed) {
                         bannedForReplacement.addAll(wonderGuardPokemon);
+                    }
+                    if (!tp.getSpeciesHolder().isAltFormeAllowed()) {
+                        bannedForReplacement.addAll(altFormes);
                     }
 
                     newSp = pickTrainerPokeReplacement(
@@ -383,7 +387,7 @@ public class TrainerPokemonRandomizer extends Randomizer {
                     throw new RandomizationException(
                             "Unexpected amount of Elite/Champions; could not assign types to all!");
                 }
-                Type typeForGroup = remainingTypes.remove(0);
+                Type typeForGroup = remainingTypes.removeFirst();
                 typesForGroups.put(group, typeForGroup);
 
                 if (group.startsWith("GYM")) {
@@ -398,7 +402,7 @@ public class TrainerPokemonRandomizer extends Randomizer {
                 Type typeForGroup;
                 if(!remainingTypes.isEmpty()) {
                     //use the remaining types first
-                    typeForGroup = remainingTypes.remove(0);
+                    typeForGroup = remainingTypes.removeFirst();
                 } else {
                     do {
                         typeForGroup = typeService.randomType(random);
@@ -662,7 +666,7 @@ public class TrainerPokemonRandomizer extends Randomizer {
                 // If it's tagged the same we can assume it's the same team
                 // just the opposite gender or something like that...
                 // So no need to check other trainers with same tag.
-                int highestLevel = t.getPokemon().get(0).getLevel();
+                int highestLevel = t.getPokemon().getFirst().getLevel();
                 int trainerPkmnCount = t.getPokemon().size();
                 for (int i = 1; i < trainerPkmnCount; i++) {
                     int levelBonus = (i == trainerPkmnCount - 1) ? 2 : 0;
@@ -688,7 +692,7 @@ public class TrainerPokemonRandomizer extends Randomizer {
         for (Trainer t : currentTrainers) {
             if (t.getTag() != null && t.getTag().equals(tag)) {
 
-                TrainerPokemon bestPoke = t.getPokemon().get(0);
+                TrainerPokemon bestPoke = t.getPokemon().getFirst();
 
                 if (t.getForceStarterPosition() >= 0) {
                     bestPoke = t.getPokemon().get(t.getForceStarterPosition());
